@@ -3,12 +3,10 @@ dependencyResolutionManagement {
     repositories {
         google()
         mavenCentral()
+        maven { url 'https://jitpack.io' }
     }
 }
-include ':ioka'
 
-if (!System.env.JITPACK) {
-    rootProject.name = "ioka Demo App"
+rootProject.name = "ioka Demo App"
 
-    include ':app'
-}
+include ':app'

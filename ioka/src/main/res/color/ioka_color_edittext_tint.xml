@@ -1,5 +1,0 @@
-<?xml version="1.0" encoding="utf-8"?>
-<selector xmlns:android="http://schemas.android.com/apk/res/android">
-    <item android:color="@color/ioka_color_text" android:state_enabled="true" />
-    <item android:color="@color/ioka_color_nonadaptable_grey" android:state_enabled="false" />
-</selector>
