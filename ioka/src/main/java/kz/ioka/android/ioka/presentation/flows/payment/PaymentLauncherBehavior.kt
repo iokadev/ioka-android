@@ -7,11 +7,12 @@ import kotlinx.parcelize.IgnoredOnParcel
 import kotlinx.parcelize.Parcelize
 import kz.ioka.android.ioka.R
 import kz.ioka.android.ioka.api.Configuration
+import kz.ioka.android.ioka.api.GooglePayConfiguration
 import kz.ioka.android.ioka.di.DependencyInjector
 import kz.ioka.android.ioka.domain.errorHandler.ResultWrapper
 import kz.ioka.android.ioka.domain.order.OrderRepositoryImpl
-import kz.ioka.android.ioka.presentation.launcher.PaymentLauncherBehavior
 import kz.ioka.android.ioka.presentation.flows.common.OrderDvo
+import kz.ioka.android.ioka.presentation.launcher.PaymentLauncherBehavior
 import kz.ioka.android.ioka.util.ViewAction
 import kz.ioka.android.ioka.util.getOrderId
 import kz.ioka.android.ioka.util.showErrorToast
@@ -20,7 +21,7 @@ import kz.ioka.android.ioka.viewBase.BaseActivity
 @Parcelize
 internal class PaymentLauncherBehavior(
     private val orderToken: String,
-    private val withGooglePay: Boolean,
+    private val googlePayConfiguration: GooglePayConfiguration? = null,
     private val configuration: Configuration? = null
 ) : PaymentLauncherBehavior {
 
@@ -63,7 +64,7 @@ internal class PaymentLauncherBehavior(
                     PayLauncher(
                         orderToken,
                         order!!,
-                        withGooglePay,
+                        googlePayConfiguration,
                         customerId != null,
                         configuration
                     )

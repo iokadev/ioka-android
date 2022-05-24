@@ -2,6 +2,7 @@ package kz.ioka.android.ioka.presentation.flows.payment
 
 import android.content.Intent
 import android.os.Bundle
+import android.util.Log
 import androidx.activity.result.ActivityResultLauncher
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.viewModels
@@ -15,11 +16,14 @@ import androidx.core.content.ContextCompat
 import androidx.core.view.isVisible
 import androidx.core.widget.doOnTextChanged
 import androidx.lifecycle.lifecycleScope
+import com.google.android.gms.common.api.ApiException
+import com.google.android.gms.wallet.*
 import kotlinx.coroutines.flow.launchIn
 import kz.ioka.android.ioka.R
 import kz.ioka.android.ioka.di.DependencyInjector
 import kz.ioka.android.ioka.domain.cardInfo.CardInfoRepositoryImpl
 import kz.ioka.android.ioka.domain.payment.PaymentRepositoryImpl
+import kz.ioka.android.ioka.googlePay.GooglePayUtil
 import kz.ioka.android.ioka.presentation.flows.common.CardInfoViewModel
 import kz.ioka.android.ioka.presentation.flows.common.CardInfoViewModelFactory
 import kz.ioka.android.ioka.presentation.flows.common.PaymentState
@@ -36,8 +40,14 @@ import kz.ioka.android.ioka.util.toAmountFormat
 import kz.ioka.android.ioka.viewBase.BaseActivity
 import kz.ioka.android.ioka.viewBase.Scannable
 import kz.ioka.android.ioka.viewBase.ThreeDSecurable
+import org.json.JSONException
+import org.json.JSONObject
 
 internal class PayActivity : BaseActivity(), Scannable, ThreeDSecurable {
+
+    companion object {
+        const val LOAD_PAYMENT_DATA_REQUEST_CODE = 123344
+    }
 
     private val cardInfoViewModel: CardInfoViewModel by viewModels {
         CardInfoViewModelFactory(
@@ -62,6 +72,8 @@ internal class PayActivity : BaseActivity(), Scannable, ThreeDSecurable {
     private lateinit var switchSaveCard: SwitchCompat
     private lateinit var btnPay: IokaStateButton
 
+    private lateinit var paymentsClient: PaymentsClient
+
     override val activityResultLauncher: ActivityResultLauncher<Intent> = registerForActivityResult(
         ActivityResultContracts.StartActivityForResult(), activityResultCallback()
     )
@@ -73,6 +85,8 @@ internal class PayActivity : BaseActivity(), Scannable, ThreeDSecurable {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.ioka_activity_pay)
+
+        paymentsClient = GooglePayUtil.createPaymentsClient(this)
 
         bindViews()
         setConfiguration()
@@ -112,11 +126,58 @@ internal class PayActivity : BaseActivity(), Scannable, ThreeDSecurable {
                 btnPay.background = ContextCompat.getDrawable(this@PayActivity, it)
             }
         }
+
+        if (launcher<PayLauncher>()?.googlePayConfiguration != null) {
+            possiblyShowGooglePayButton()
+        } else {
+            groupGooglePay.isVisible = false
+        }
+    }
+
+    private fun possiblyShowGooglePayButton() {
+        val isReadyToPayJson = GooglePayUtil.isReadyToPayRequest() ?: return
+        val request = IsReadyToPayRequest.fromJson(isReadyToPayJson.toString())
+
+        val task = paymentsClient.isReadyToPay(request)
+        task.addOnCompleteListener { completedTask ->
+            try {
+                completedTask.getResult(ApiException::class.java)?.let {
+                    groupGooglePay.isVisible = it
+                }
+            } catch (exception: ApiException) {
+                Log.w("isReadyToPay failed", exception)
+            }
+        }
+    }
+
+    private fun requestPayment() {
+        btnGooglePay.isClickable = false
+
+        val paymentDataRequestJson =
+            GooglePayUtil.getPaymentDataRequest(
+                launcher<PayLauncher>()?.order?.amount?.amount.toString(),
+                launcher<PayLauncher>()?.order?.amount?.currency?.code!!,
+                launcher<PayLauncher>()?.googlePayConfiguration?.merchantIdentifier!!
+            )
+
+        if (paymentDataRequestJson == null) {
+            Log.e("RequestPayment", "Can't fetch payment data request")
+            return
+        }
+        val request = PaymentDataRequest.fromJson(paymentDataRequestJson.toString())
+
+        AutoResolveHelper.resolveTask(
+            paymentsClient.loadPaymentData(request), this, LOAD_PAYMENT_DATA_REQUEST_CODE
+        )
     }
 
     private fun setupListeners() {
         vToolbar.setNavigationOnClickListener {
             onBackPressed()
+        }
+
+        btnGooglePay.setOnClickListener {
+            requestPayment()
         }
 
         etCardNumber.onTextChangedWithDebounce = {
@@ -271,6 +332,50 @@ internal class PayActivity : BaseActivity(), Scannable, ThreeDSecurable {
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super<BaseActivity>.onActivityResult(requestCode, resultCode, data)
         super<Scannable>.onActivityResult(requestCode, resultCode, data)
+
+        if (requestCode == LOAD_PAYMENT_DATA_REQUEST_CODE) {
+            processGooglePayResult(resultCode, data)
+            btnGooglePay.isClickable = true
+        }
+    }
+
+    private fun processGooglePayResult(resultCode: Int, data: Intent?) {
+        when (resultCode) {
+            RESULT_OK ->
+                data?.let { intent ->
+                    PaymentData.getFromIntent(intent)?.let(::handlePaymentSuccess)
+                }
+
+            AutoResolveHelper.RESULT_ERROR -> {
+                AutoResolveHelper.getStatusFromIntent(data)?.let {
+
+                }
+            }
+        }
+    }
+
+    private fun handlePaymentSuccess(paymentData: PaymentData) {
+        val paymentInformation = paymentData.toJson() ?: return
+
+        try {
+            // Token will be null if PaymentDataRequest was not constructed using fromJson(String).
+            val paymentMethodData =
+                JSONObject(paymentInformation).getJSONObject("paymentMethodData")
+            val billingName = paymentMethodData.getJSONObject("info")
+                .getJSONObject("billingAddress").getString("name")
+            Log.d("BillingName", billingName)
+
+            // Logging token string.
+            Log.d(
+                "GooglePaymentToken", paymentMethodData
+                    .getJSONObject("tokenizationData")
+                    .getString("token")
+            )
+
+        } catch (e: JSONException) {
+            Log.e("handlePaymentSuccess", "Error: $e")
+        }
+
     }
 
 }

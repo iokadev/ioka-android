@@ -27,6 +27,7 @@ object Ioka {
     fun startPaymentFlow(
         activity: Activity,
         orderToken: String,
+        googlePayConfiguration: GooglePayConfiguration? = null,
         configuration: Configuration? = null
     ) {
         if (Config.isApiKeyInitialized().not()) {
@@ -35,7 +36,7 @@ object Ioka {
 
         val intent = PaymentLauncherActivity.provideIntent(
             activity,
-            PaymentLauncherBehavior(orderToken, false, configuration)
+            PaymentLauncherBehavior(orderToken, googlePayConfiguration, configuration)
         )
 
         activity.startActivityForResult(intent, IOKA_PAYMENT_REQUEST_CODE)

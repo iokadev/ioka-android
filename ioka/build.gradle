@@ -28,6 +28,9 @@ dependencies {
     // AppCompat Core
     implementation 'androidx.appcompat:appcompat:1.4.1'
     implementation 'androidx.fragment:fragment-ktx:1.4.1'
+    
+    // Google Pay
+    implementation 'com.google.android.gms:play-services-wallet:19.1.0'
 
     // UI
     implementation 'androidx.cardview:cardview:1.0.0'

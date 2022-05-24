@@ -4,8 +4,8 @@ import android.app.Activity
 import androidx.lifecycle.*
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.launch
-import kz.ioka.android.ioka.api.Ioka
 import kz.ioka.android.ioka.api.CardDvo
+import kz.ioka.android.ioka.api.Ioka
 import kz.ioka.android.iokademoapp.data.OrderRepository
 import kz.ioka.android.iokademoapp.presentation.cart.PaymentTypeDvo
 import java.math.BigDecimal
@@ -54,12 +54,14 @@ class OrderDetailsViewModel @Inject constructor(
                 { activity: Activity ->
                     Ioka.startPaymentFlow(activity, orderToken)
                 }
-            PaymentTypeDvo.PayWithCardDvo -> { activity: Activity ->
-                Ioka.startPaymentFlow(activity, orderToken)
-            }
-            PaymentTypeDvo.PayWithCashDvo -> { activity: Activity ->
-                Ioka.startPaymentFlow(activity, orderToken)
-            }
+            PaymentTypeDvo.PayWithCardDvo ->
+                { activity: Activity ->
+                    Ioka.startPaymentFlow(activity, orderToken)
+                }
+            PaymentTypeDvo.PayWithCashDvo ->
+                { activity: Activity ->
+                    Ioka.startPaymentFlow(activity, orderToken)
+                }
             is PaymentTypeDvo.PayWithSavedCardDvo -> {
                 val cardDvo = selectedPaymentType.value as PaymentTypeDvo.PayWithSavedCardDvo
 
@@ -76,9 +78,10 @@ class OrderDetailsViewModel @Inject constructor(
                     )
                 }
             }
-            null -> { activity: Activity ->
-                Ioka.startPaymentFlow(activity, orderToken)
-            }
+            null ->
+                { activity: Activity ->
+                    Ioka.startPaymentFlow(activity, orderToken)
+                }
         }
     }
 
